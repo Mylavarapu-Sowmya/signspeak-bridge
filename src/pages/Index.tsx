@@ -4,6 +4,8 @@ import ModeToggle from '@/components/ModeToggle';
 import SignToText from '@/components/SignToText';
 import TextToSign from '@/components/TextToSign';
 import Features from '@/components/Features';
+import SignLibrary from '@/components/SignLibrary';
+import LanguageSection from '@/components/LanguageSection';
 
 const Index = () => {
   const [mode, setMode] = useState<'sign-to-text' | 'text-to-sign'>('sign-to-text');
@@ -60,6 +62,12 @@ const Index = () => {
 
         {/* Features Section */}
         <Features />
+
+        {/* Sign Library Section */}
+        <SignLibrary />
+
+        {/* Language Section */}
+        <LanguageSection />
 
         {/* Footer */}
         <footer className="text-center pt-16 border-t border-white/5">
