@@ -371,102 +371,185 @@ export const classifyASLLetter = (landmarks: NormalizedLandmark[]): GestureResul
   return null;
 };
 
-// Common Phrases/Words Classification
+// Common Phrases/Words Classification - Enhanced with more gestures
 export const classifyPhrase = (landmarks: NormalizedLandmark[]): GestureResult | null => {
   const fingers = getFingerStates(landmarks);
   const { thumb, index, middle, ring, pinky } = fingers;
   
   const thumbTip = landmarks[LANDMARKS.THUMB_TIP];
+  const indexTip = landmarks[LANDMARKS.INDEX_TIP];
+  const middleTip = landmarks[LANDMARKS.MIDDLE_TIP];
+  const pinkyTip = landmarks[LANDMARKS.PINKY_TIP];
   const wrist = landmarks[LANDMARKS.WRIST];
+  const indexMcp = landmarks[LANDMARKS.INDEX_MCP];
   
-  // Thumbs Up
+  // Thumbs Up - thumb extended upward, fist closed
   if (thumb && !index && !middle && !ring && !pinky) {
-    if (thumbTip.y < wrist.y) {
+    if (thumbTip.y < wrist.y - 0.05) {
       return { gesture: 'Thumbs Up', confidence: 94, category: 'phrase' };
     }
-    // Thumbs Down
-    if (thumbTip.y > wrist.y + 0.1) {
+    // Thumbs Down - thumb extended downward
+    if (thumbTip.y > wrist.y + 0.08) {
       return { gesture: 'Thumbs Down', confidence: 92, category: 'phrase' };
+    }
+    // Call Me - thumb and pinky near ear position (Y shape detected as phone)
+    if (Math.abs(thumbTip.x - pinkyTip.x) > 0.15) {
+      return { gesture: 'Call Me', confidence: 85, category: 'phrase' };
     }
   }
 
-  // I Love You (ASL)
+  // I Love You (ASL) - thumb, index, and pinky extended
   if (thumb && index && !middle && !ring && pinky) {
-    return { gesture: 'I Love You', confidence: 93, category: 'phrase' };
+    return { gesture: 'I Love You', confidence: 95, category: 'phrase' };
   }
 
-  // Hello / Wave (open palm)
+  // Hello / Wave (open palm) - all fingers extended
   if (index && middle && ring && pinky && thumb) {
-    return { gesture: 'Hello', confidence: 88, category: 'phrase' };
+    const palmForward = landmarks[LANDMARKS.MIDDLE_MCP].z < landmarks[LANDMARKS.MIDDLE_TIP].z;
+    if (palmForward) {
+      return { gesture: 'Hello', confidence: 90, category: 'phrase' };
+    }
+    // Goodbye - similar but different orientation
+    return { gesture: 'Goodbye', confidence: 85, category: 'phrase' };
   }
 
-  // OK Sign
-  const indexTip = landmarks[LANDMARKS.INDEX_TIP];
+  // OK Sign - thumb and index touch, others extended
   if (distance2D(thumbTip, indexTip) < 0.05 && middle && ring && pinky) {
-    return { gesture: 'OK', confidence: 91, category: 'phrase' };
+    return { gesture: 'OK', confidence: 93, category: 'phrase' };
   }
 
-  // Stop (open palm facing out)
+  // Stop (open palm facing out, thumb tucked)
   if (index && middle && ring && pinky && !thumb) {
     const palmForward = landmarks[LANDMARKS.MIDDLE_MCP].z < landmarks[LANDMARKS.MIDDLE_TIP].z;
     if (palmForward) {
-      return { gesture: 'Stop', confidence: 85, category: 'phrase' };
+      return { gesture: 'Stop', confidence: 88, category: 'phrase' };
+    }
+    // Wait - similar with wiggling implied
+    return { gesture: 'Wait', confidence: 82, category: 'phrase' };
+  }
+
+  // Peace / Victory - index and middle spread
+  if (index && middle && !ring && !pinky && !thumb) {
+    const spread = distance2D(indexTip, middleTip) > 0.05;
+    if (spread) {
+      return { gesture: 'Peace', confidence: 94, category: 'phrase' };
     }
   }
 
-  // Peace
-  if (index && middle && !ring && !pinky) {
-    return { gesture: 'Peace', confidence: 92, category: 'phrase' };
+  // Rock On / Metal - index and pinky extended
+  if (index && !middle && !ring && pinky && !thumb) {
+    return { gesture: 'Rock On', confidence: 91, category: 'phrase' };
   }
 
-  // Rock / Metal
-  if (index && !middle && !ring && pinky) {
-    return { gesture: 'Rock On', confidence: 89, category: 'phrase' };
-  }
-
-  // Point
+  // Point - index only
   if (index && !middle && !ring && !pinky && !thumb) {
-    return { gesture: 'Point', confidence: 87, category: 'phrase' };
+    return { gesture: 'Point', confidence: 89, category: 'phrase' };
+  }
+
+  // Fist / Power - all fingers closed
+  if (!index && !middle && !ring && !pinky && !thumb) {
+    if (thumbTip.x > indexMcp.x) {
+      return { gesture: 'Fist', confidence: 85, category: 'phrase' };
+    }
+  }
+
+  // Shaka / Hang Loose - thumb and pinky extended
+  if (thumb && !index && !middle && !ring && pinky) {
+    return { gesture: 'Shaka', confidence: 90, category: 'phrase' };
+  }
+
+  // Three fingers up - could be "W" or number 3
+  if (index && middle && ring && !pinky && !thumb) {
+    return { gesture: 'Three', confidence: 86, category: 'phrase' };
+  }
+
+  // Crossed fingers - luck
+  if (index && middle && !ring && !pinky) {
+    const crossed = Math.abs(indexTip.x - middleTip.x) < 0.03;
+    if (crossed && indexTip.y < middleTip.y) {
+      return { gesture: 'Good Luck', confidence: 83, category: 'phrase' };
+    }
   }
 
   return null;
 };
 
-// Number Classification
+// Number Classification - Enhanced with more numbers
 export const classifyNumber = (landmarks: NormalizedLandmark[]): GestureResult | null => {
   const fingers = getFingerStates(landmarks);
   const { thumb, index, middle, ring, pinky } = fingers;
   
-  const extendedCount = [index, middle, ring, pinky].filter(Boolean).length;
+  const thumbTip = landmarks[LANDMARKS.THUMB_TIP];
+  const indexTip = landmarks[LANDMARKS.INDEX_TIP];
+  const middleTip = landmarks[LANDMARKS.MIDDLE_TIP];
+  const ringTip = landmarks[LANDMARKS.RING_TIP];
+  const pinkyTip = landmarks[LANDMARKS.PINKY_TIP];
 
-  // Zero - Fist
-  if (extendedCount === 0 && !thumb) {
-    return { gesture: '0', confidence: 82, category: 'number' };
+  // Zero - O shape (fingers and thumb form circle)
+  if (!index && !middle && !ring && !pinky) {
+    if (distance2D(thumbTip, indexTip) < 0.08) {
+      return { gesture: '0', confidence: 84, category: 'number' };
+    }
   }
 
   // One - Index only
   if (index && !middle && !ring && !pinky && !thumb) {
-    return { gesture: '1', confidence: 90, category: 'number' };
+    return { gesture: '1', confidence: 92, category: 'number' };
   }
 
-  // Two - Index and middle
+  // Two - Index and middle extended (V shape)
   if (index && middle && !ring && !pinky && !thumb) {
-    return { gesture: '2', confidence: 89, category: 'number' };
+    return { gesture: '2', confidence: 90, category: 'number' };
   }
 
-  // Three - Index, middle, ring
-  if (index && middle && ring && !pinky && !thumb) {
-    return { gesture: '3', confidence: 87, category: 'number' };
+  // Three - Thumb, index, middle extended (ASL style)
+  if (thumb && index && middle && !ring && !pinky) {
+    return { gesture: '3', confidence: 88, category: 'number' };
   }
 
   // Four - All fingers except thumb
   if (index && middle && ring && pinky && !thumb) {
-    return { gesture: '4', confidence: 88, category: 'number' };
+    return { gesture: '4', confidence: 89, category: 'number' };
   }
 
-  // Five - All fingers including thumb
+  // Five - All fingers extended
   if (index && middle && ring && pinky && thumb) {
-    return { gesture: '5', confidence: 91, category: 'number' };
+    return { gesture: '5', confidence: 93, category: 'number' };
+  }
+
+  // Six - Thumb touches pinky, W shape visible
+  if (index && middle && ring && !pinky && thumb) {
+    if (distance2D(thumbTip, pinkyTip) < 0.06) {
+      return { gesture: '6', confidence: 85, category: 'number' };
+    }
+  }
+
+  // Seven - Thumb touches ring finger
+  if (index && middle && !ring && pinky && thumb) {
+    if (distance2D(thumbTip, ringTip) < 0.06) {
+      return { gesture: '7', confidence: 84, category: 'number' };
+    }
+  }
+
+  // Eight - Thumb touches middle finger
+  if (index && !middle && ring && pinky && thumb) {
+    if (distance2D(thumbTip, middleTip) < 0.06) {
+      return { gesture: '8', confidence: 83, category: 'number' };
+    }
+  }
+
+  // Nine - Thumb touches index finger (like F but different context)
+  if (!index && middle && ring && pinky && thumb) {
+    if (distance2D(thumbTip, indexTip) < 0.06) {
+      return { gesture: '9', confidence: 84, category: 'number' };
+    }
+  }
+
+  // Ten - Thumb up shaking (static: just thumb extended)
+  if (thumb && !index && !middle && !ring && !pinky) {
+    if (thumbTip.y < landmarks[LANDMARKS.THUMB_MCP].y) {
+      return { gesture: '10', confidence: 82, category: 'number' };
+    }
   }
 
   return null;
