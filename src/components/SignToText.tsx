@@ -24,26 +24,26 @@ const SignToText = () => {
   const [history, setHistory] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
-  const stabilizerRef = useRef(new GestureStabilizer(8, 0.6));
+  const stabilizerRef = useRef(new GestureStabilizer(8, 0.5));
   const lastSpokenRef = useRef<string>('');
 
   // Process gesture detection results
   useEffect(() => {
     if (!isActive || !detectionResult.gesture) return;
 
-    const stableGesture = stabilizerRef.current.addGesture(detectionResult.gesture);
+    const stabilized = stabilizerRef.current.addGesture(detectionResult.gesture, detectionResult.confidence);
     
-    if (stableGesture && stableGesture !== 'Unknown' && stableGesture !== 'No Hand') {
-      setTranslatedText(stableGesture);
+    if (stabilized.gesture && stabilized.gesture !== 'Unknown' && stabilized.gesture !== 'No Hand') {
+      setTranslatedText(stabilized.gesture);
       
-      // Add to history if it's a new gesture
-      if (stableGesture !== history[0]) {
-        setHistory(prev => [stableGesture, ...prev.slice(0, 9)]);
+      // Add to history if it's a new gesture and stable
+      if (stabilized.isStable && stabilized.gesture !== history[0]) {
+        setHistory(prev => [stabilized.gesture, ...prev.slice(0, 9)]);
         
         // Auto-speak new gestures
-        if (autoSpeak && stableGesture !== lastSpokenRef.current) {
-          lastSpokenRef.current = stableGesture;
-          speak(stableGesture);
+        if (autoSpeak && stabilized.gesture !== lastSpokenRef.current) {
+          lastSpokenRef.current = stabilized.gesture;
+          speak(stabilized.gesture);
         }
       }
     }
@@ -326,19 +326,19 @@ const SignToText = () => {
 
         {/* Supported Gestures */}
         <div className="glass-card p-4">
-          <h3 className="font-semibold text-sm mb-3">Supported Gestures:</h3>
+          <h3 className="font-semibold text-sm mb-3">Supported Gestures (Complete ASL Alphabet):</h3>
           <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
             <div>
-              <span className="font-medium text-foreground">Phrases:</span> Hello, Peace, OK, I Love You, Thumbs Up/Down
+              <span className="font-medium text-foreground">Phrases:</span> Hello, Peace, OK, I Love You, Thumbs Up/Down, Stop, Point, Rock On
             </div>
             <div>
-              <span className="font-medium text-foreground">Letters:</span> A, B, C, D, E, F, I, L, O, U, V, W, Y
+              <span className="font-medium text-foreground">Letters:</span> A-Z (Full ASL Alphabet)
             </div>
             <div>
               <span className="font-medium text-foreground">Numbers:</span> 0-5
             </div>
             <div>
-              <span className="font-medium text-foreground">More:</span> Point, Rock On, Call Me, Stop
+              <span className="font-medium text-foreground">Detection:</span> 21-point hand tracking
             </div>
           </div>
         </div>

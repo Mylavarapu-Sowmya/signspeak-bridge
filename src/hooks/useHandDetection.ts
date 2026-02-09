@@ -2,6 +2,7 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 import { Hands, Results, NormalizedLandmark } from '@mediapipe/hands';
 import { Camera } from '@mediapipe/camera_utils';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
+import { classifyGesture } from '@/lib/gestureClassifier';
 
 export interface HandLandmarks {
   landmarks: NormalizedLandmark[];
@@ -12,127 +13,8 @@ export interface DetectionResult {
   hands: HandLandmarks[];
   gesture: string | null;
   confidence: number;
+  category: 'letter' | 'word' | 'phrase' | 'number' | null;
 }
-
-// Gesture classification based on landmark positions
-// Similar approach to uzibytes/sign2text using landmark analysis
-const classifyGesture = (landmarks: NormalizedLandmark[]): { gesture: string; confidence: number } => {
-  if (landmarks.length !== 21) {
-    return { gesture: '', confidence: 0 };
-  }
-
-  // Key landmark indices (MediaPipe hand model)
-  const WRIST = 0;
-  const THUMB_TIP = 4;
-  const INDEX_TIP = 8;
-  const MIDDLE_TIP = 12;
-  const RING_TIP = 16;
-  const PINKY_TIP = 20;
-  
-  const THUMB_IP = 3;
-  const INDEX_PIP = 6;
-  const MIDDLE_PIP = 10;
-  const RING_PIP = 14;
-  const PINKY_PIP = 18;
-
-  const INDEX_MCP = 5;
-  const MIDDLE_MCP = 9;
-  const RING_MCP = 13;
-  const PINKY_MCP = 17;
-
-  // Helper: check if finger is extended
-  const isFingerExtended = (tipIdx: number, pipIdx: number, mcpIdx: number): boolean => {
-    return landmarks[tipIdx].y < landmarks[pipIdx].y && landmarks[pipIdx].y < landmarks[mcpIdx].y;
-  };
-
-  // Helper: check if thumb is extended (horizontal check for thumb)
-  const isThumbExtended = (): boolean => {
-    return Math.abs(landmarks[THUMB_TIP].x - landmarks[WRIST].x) > 
-           Math.abs(landmarks[INDEX_MCP].x - landmarks[WRIST].x) * 0.5;
-  };
-
-  const indexExtended = isFingerExtended(INDEX_TIP, INDEX_PIP, INDEX_MCP);
-  const middleExtended = isFingerExtended(MIDDLE_TIP, MIDDLE_PIP, MIDDLE_MCP);
-  const ringExtended = isFingerExtended(RING_TIP, RING_PIP, RING_MCP);
-  const pinkyExtended = isFingerExtended(PINKY_TIP, PINKY_PIP, PINKY_MCP);
-  const thumbExtended = isThumbExtended();
-
-  // Count extended fingers
-  const extendedCount = [indexExtended, middleExtended, ringExtended, pinkyExtended].filter(Boolean).length;
-
-  // ASL Gesture Recognition (based on sign2text approach)
-  
-  // Thumbs Up - only thumb extended, fist closed
-  if (thumbExtended && extendedCount === 0 && landmarks[THUMB_TIP].y < landmarks[INDEX_MCP].y) {
-    return { gesture: 'Thumbs Up', confidence: 92 };
-  }
-
-  // Thumbs Down - only thumb extended, pointing down
-  if (thumbExtended && extendedCount === 0 && landmarks[THUMB_TIP].y > landmarks[WRIST].y) {
-    return { gesture: 'Thumbs Down', confidence: 88 };
-  }
-
-  // Victory/Peace Sign - index and middle extended, others closed
-  if (indexExtended && middleExtended && !ringExtended && !pinkyExtended) {
-    return { gesture: 'Peace', confidence: 94 };
-  }
-
-  // OK Sign - thumb and index form circle, others extended
-  const thumbIndexDist = Math.hypot(
-    landmarks[THUMB_TIP].x - landmarks[INDEX_TIP].x,
-    landmarks[THUMB_TIP].y - landmarks[INDEX_TIP].y
-  );
-  if (thumbIndexDist < 0.05 && middleExtended && ringExtended && pinkyExtended) {
-    return { gesture: 'OK', confidence: 90 };
-  }
-
-  // I Love You (ASL) - thumb, index, and pinky extended
-  if (thumbExtended && indexExtended && !middleExtended && !ringExtended && pinkyExtended) {
-    return { gesture: 'I Love You', confidence: 91 };
-  }
-
-  // Open Palm / Hello - all fingers extended
-  if (indexExtended && middleExtended && ringExtended && pinkyExtended) {
-    return { gesture: 'Hello', confidence: 89 };
-  }
-
-  // Fist / A - all fingers closed
-  if (!indexExtended && !middleExtended && !ringExtended && !pinkyExtended && !thumbExtended) {
-    return { gesture: 'A', confidence: 85 };
-  }
-
-  // Pointing / Index - only index extended
-  if (indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
-    return { gesture: 'Point', confidence: 88 };
-  }
-
-  // Three - index, middle, ring extended
-  if (indexExtended && middleExtended && ringExtended && !pinkyExtended) {
-    return { gesture: 'Three', confidence: 86 };
-  }
-
-  // Four - all except thumb
-  if (indexExtended && middleExtended && ringExtended && pinkyExtended && !thumbExtended) {
-    return { gesture: 'Four', confidence: 87 };
-  }
-
-  // L shape - thumb and index extended at angle
-  if (thumbExtended && indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
-    return { gesture: 'L', confidence: 84 };
-  }
-
-  // Rock / Horns - index and pinky extended
-  if (indexExtended && !middleExtended && !ringExtended && pinkyExtended) {
-    return { gesture: 'Rock', confidence: 85 };
-  }
-
-  // Call me / Phone - thumb and pinky extended
-  if (thumbExtended && !indexExtended && !middleExtended && !ringExtended && pinkyExtended) {
-    return { gesture: 'Call Me', confidence: 83 };
-  }
-
-  return { gesture: 'Unknown', confidence: 50 };
-};
 
 export const useHandDetection = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -147,6 +29,7 @@ export const useHandDetection = () => {
     hands: [],
     gesture: null,
     confidence: 0,
+    category: null,
   });
 
   // Process hand detection results
@@ -168,7 +51,7 @@ export const useHandDetection = () => {
     // Draw hand landmarks and connections
     if (results.multiHandLandmarks && results.multiHandedness) {
       const hands: HandLandmarks[] = [];
-      let primaryGesture: { gesture: string; confidence: number } = { gesture: '', confidence: 0 };
+      let primaryGesture = { gesture: '', confidence: 0, category: 'phrase' as 'letter' | 'word' | 'phrase' | 'number' };
 
       for (let i = 0; i < results.multiHandLandmarks.length; i++) {
         const landmarks = results.multiHandLandmarks[i];
@@ -206,12 +89,14 @@ export const useHandDetection = () => {
         hands,
         gesture: primaryGesture.gesture || null,
         confidence: primaryGesture.confidence,
+        category: primaryGesture.category || null,
       });
     } else {
       setDetectionResult({
         hands: [],
         gesture: null,
         confidence: 0,
+        category: null,
       });
     }
 
@@ -315,6 +200,7 @@ export const useHandDetection = () => {
       hands: [],
       gesture: null,
       confidence: 0,
+      category: null,
     });
   }, []);
 

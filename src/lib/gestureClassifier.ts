@@ -118,95 +118,254 @@ export const angle = (
   return Math.acos(dot / (mag1 * mag2)) * (180 / Math.PI);
 };
 
-// ASL Alphabet Classification
+// Get palm orientation
+export const getPalmOrientation = (landmarks: NormalizedLandmark[]) => {
+  const wrist = landmarks[LANDMARKS.WRIST];
+  const middleMcp = landmarks[LANDMARKS.MIDDLE_MCP];
+  const indexMcp = landmarks[LANDMARKS.INDEX_MCP];
+  const pinkyMcp = landmarks[LANDMARKS.PINKY_MCP];
+  
+  // Palm facing camera if MCPs have similar z values
+  const palmForward = middleMcp.z < wrist.z;
+  const palmUp = middleMcp.y < wrist.y;
+  const palmRight = indexMcp.x > pinkyMcp.x;
+  
+  return { palmForward, palmUp, palmRight };
+};
+
+// Check if fingers are touching
+export const areFingersTouching = (
+  landmarks: NormalizedLandmark[],
+  tip1Idx: number,
+  tip2Idx: number,
+  threshold: number = 0.05
+): boolean => {
+  return distance2D(landmarks[tip1Idx], landmarks[tip2Idx]) < threshold;
+};
+
+// Check thumb position relative to palm
+export const getThumbPosition = (landmarks: NormalizedLandmark[]) => {
+  const thumbTip = landmarks[LANDMARKS.THUMB_TIP];
+  const indexMcp = landmarks[LANDMARKS.INDEX_MCP];
+  const middleMcp = landmarks[LANDMARKS.MIDDLE_MCP];
+  const wrist = landmarks[LANDMARKS.WRIST];
+  
+  const acrossPalm = thumbTip.x > middleMcp.x;
+  const onSide = Math.abs(thumbTip.x - indexMcp.x) < 0.05;
+  const tucked = thumbTip.y > indexMcp.y;
+  const extended = distance2D(thumbTip, wrist) > distance2D(indexMcp, wrist);
+  
+  return { acrossPalm, onSide, tucked, extended };
+};
+
+// ASL Alphabet Classification - Complete 26 Letters
 export const classifyASLLetter = (landmarks: NormalizedLandmark[]): GestureResult | null => {
   const fingers = getFingerStates(landmarks);
   const { thumb, index, middle, ring, pinky } = fingers;
+  const thumbPos = getThumbPosition(landmarks);
+  const palm = getPalmOrientation(landmarks);
   
-  // A - Fist with thumb on side
-  if (!index && !middle && !ring && !pinky) {
-    const thumbTip = landmarks[LANDMARKS.THUMB_TIP];
-    const indexMcp = landmarks[LANDMARKS.INDEX_MCP];
-    if (thumbTip.x > indexMcp.x) {
-      return { gesture: 'A', confidence: 88, category: 'letter' };
-    }
-  }
-
-  // B - Flat hand, thumb tucked
-  if (index && middle && ring && pinky && !thumb) {
-    return { gesture: 'B', confidence: 90, category: 'letter' };
-  }
-
-  // C - Curved hand
   const thumbTip = landmarks[LANDMARKS.THUMB_TIP];
   const indexTip = landmarks[LANDMARKS.INDEX_TIP];
+  const middleTip = landmarks[LANDMARKS.MIDDLE_TIP];
+  const ringTip = landmarks[LANDMARKS.RING_TIP];
   const pinkyTip = landmarks[LANDMARKS.PINKY_TIP];
+  const wrist = landmarks[LANDMARKS.WRIST];
   
-  if (distance2D(thumbTip, indexTip) > 0.1 && distance2D(thumbTip, indexTip) < 0.25) {
-    const allFingersCurved = !index && !middle && !ring && !pinky;
-    if (allFingersCurved && thumb) {
-      return { gesture: 'C', confidence: 82, category: 'letter' };
+  const indexPip = landmarks[LANDMARKS.INDEX_PIP];
+  const middlePip = landmarks[LANDMARKS.MIDDLE_PIP];
+  const indexMcp = landmarks[LANDMARKS.INDEX_MCP];
+  
+  // A - Fist with thumb on side (thumb beside index, not over fingers)
+  if (!index && !middle && !ring && !pinky && thumbPos.onSide) {
+    return { gesture: 'A', confidence: 90, category: 'letter' };
+  }
+
+  // B - Flat hand with fingers together, thumb tucked across palm
+  if (index && middle && ring && pinky && !thumb) {
+    const fingersTogether = distance2D(indexTip, middleTip) < 0.06 &&
+                            distance2D(middleTip, ringTip) < 0.06 &&
+                            distance2D(ringTip, pinkyTip) < 0.06;
+    if (fingersTogether && palm.palmForward) {
+      return { gesture: 'B', confidence: 92, category: 'letter' };
     }
   }
 
-  // D - Index up, others make circle with thumb
+  // C - Curved hand like holding a cup
+  if (!index && !middle && !ring && !pinky && thumb) {
+    const curvedGap = distance2D(thumbTip, indexTip);
+    if (curvedGap > 0.08 && curvedGap < 0.20) {
+      return { gesture: 'C', confidence: 85, category: 'letter' };
+    }
+  }
+
+  // D - Index up, other fingers and thumb form circle
   if (index && !middle && !ring && !pinky) {
-    const thumbToMiddle = distance2D(thumbTip, landmarks[LANDMARKS.MIDDLE_TIP]);
-    if (thumbToMiddle < 0.08) {
-      return { gesture: 'D', confidence: 85, category: 'letter' };
+    const thumbToMiddle = distance2D(thumbTip, middleTip);
+    if (thumbToMiddle < 0.07) {
+      return { gesture: 'D', confidence: 88, category: 'letter' };
     }
   }
 
-  // E - Fingers curled, thumb across
+  // E - All fingers curled, thumb tucked in front
   if (!index && !middle && !ring && !pinky && !thumb) {
-    return { gesture: 'E', confidence: 80, category: 'letter' };
+    if (thumbTip.y > indexMcp.y) {
+      return { gesture: 'E', confidence: 83, category: 'letter' };
+    }
   }
 
-  // F - OK sign but rotated
-  if (distance2D(thumbTip, indexTip) < 0.05 && middle && ring && pinky) {
-    return { gesture: 'F', confidence: 87, category: 'letter' };
+  // F - OK sign with three fingers extended
+  if (areFingersTouching(landmarks, LANDMARKS.THUMB_TIP, LANDMARKS.INDEX_TIP, 0.05) && 
+      middle && ring && pinky) {
+    return { gesture: 'F', confidence: 89, category: 'letter' };
+  }
+
+  // G - Index and thumb parallel, pointing sideways
+  if (thumb && index && !middle && !ring && !pinky) {
+    const horizontal = Math.abs(indexTip.y - thumbTip.y) < 0.08;
+    const pointing = indexTip.x !== wrist.x;
+    if (horizontal && pointing && !palm.palmForward) {
+      return { gesture: 'G', confidence: 84, category: 'letter' };
+    }
+  }
+
+  // H - Index and middle extended, pointing sideways
+  if (index && middle && !ring && !pinky && !thumb) {
+    const horizontal = indexTip.y > indexMcp.y - 0.05 && middleTip.y > middlePip.y - 0.05;
+    if (horizontal) {
+      return { gesture: 'H', confidence: 85, category: 'letter' };
+    }
   }
 
   // I - Pinky extended only
   if (!index && !middle && !ring && pinky && !thumb) {
-    return { gesture: 'I', confidence: 89, category: 'letter' };
+    return { gesture: 'I', confidence: 91, category: 'letter' };
   }
 
-  // L - L shape with thumb and index
+  // J - Like I but traces J shape (static: pinky extended, hand tilted)
+  if (!index && !middle && !ring && pinky && !thumb) {
+    if (pinkyTip.x < landmarks[LANDMARKS.PINKY_MCP].x) {
+      return { gesture: 'J', confidence: 82, category: 'letter' };
+    }
+  }
+
+  // K - Index and middle up, thumb between them
+  if (index && middle && !ring && !pinky) {
+    const thumbBetween = thumbTip.x > indexTip.x && thumbTip.x < middleTip.x;
+    if (thumbBetween || distance2D(thumbTip, indexPip) < 0.06) {
+      return { gesture: 'K', confidence: 86, category: 'letter' };
+    }
+  }
+
+  // L - L shape with index and thumb
   if (thumb && index && !middle && !ring && !pinky) {
-    const thumbIndexAngle = angle(thumbTip, landmarks[LANDMARKS.WRIST], indexTip);
-    if (thumbIndexAngle > 60 && thumbIndexAngle < 120) {
-      return { gesture: 'L', confidence: 91, category: 'letter' };
+    const thumbIndexAngle = angle(thumbTip, wrist, indexTip);
+    if (thumbIndexAngle > 50 && thumbIndexAngle < 130) {
+      return { gesture: 'L', confidence: 93, category: 'letter' };
     }
   }
 
-  // O - All fingers form O shape
-  if (distance2D(thumbTip, indexTip) < 0.06 && 
-      !middle && !ring && !pinky) {
-    return { gesture: 'O', confidence: 84, category: 'letter' };
-  }
-
-  // U - Index and middle extended together
-  if (index && middle && !ring && !pinky) {
-    const indexMiddleDist = distance2D(indexTip, landmarks[LANDMARKS.MIDDLE_TIP]);
-    if (indexMiddleDist < 0.05) {
-      return { gesture: 'U', confidence: 86, category: 'letter' };
+  // M - Thumb under three fingers
+  if (!index && !middle && !ring && !pinky) {
+    const thumbUnder = thumbTip.y > indexTip.y && thumbTip.y > middleTip.y && thumbTip.y > ringTip.y;
+    if (thumbUnder && thumbPos.tucked) {
+      return { gesture: 'M', confidence: 80, category: 'letter' };
     }
   }
 
-  // V - Victory/Peace sign
-  if (index && middle && !ring && !pinky) {
-    return { gesture: 'V', confidence: 92, category: 'letter' };
+  // N - Thumb under two fingers
+  if (!index && !middle && !ring && !pinky) {
+    const thumbUnderTwo = thumbTip.y > indexTip.y && thumbTip.y > middleTip.y;
+    if (thumbUnderTwo && !thumbPos.acrossPalm) {
+      return { gesture: 'N', confidence: 79, category: 'letter' };
+    }
   }
 
-  // W - Three fingers spread
+  // O - All fingertips touching thumb to form O
+  if (!index && !middle && !ring && !pinky) {
+    const allTouchThumb = distance2D(thumbTip, indexTip) < 0.06 &&
+                          distance2D(indexTip, middleTip) < 0.06;
+    if (allTouchThumb) {
+      return { gesture: 'O', confidence: 86, category: 'letter' };
+    }
+  }
+
+  // P - Like K but pointing down
+  if (index && middle && !ring && !pinky) {
+    if (indexTip.y > indexMcp.y && middleTip.y > middlePip.y) {
+      return { gesture: 'P', confidence: 83, category: 'letter' };
+    }
+  }
+
+  // Q - Like G but pointing down
+  if (thumb && index && !middle && !ring && !pinky) {
+    if (indexTip.y > wrist.y && thumbTip.y > wrist.y) {
+      return { gesture: 'Q', confidence: 81, category: 'letter' };
+    }
+  }
+
+  // R - Index and middle crossed
+  if (index && middle && !ring && !pinky) {
+    const crossed = Math.abs(indexTip.x - middleTip.x) < 0.03;
+    if (crossed) {
+      return { gesture: 'R', confidence: 84, category: 'letter' };
+    }
+  }
+
+  // S - Fist with thumb over fingers
+  if (!index && !middle && !ring && !pinky && !thumb) {
+    if (thumbTip.x > indexMcp.x && thumbTip.y < indexTip.y) {
+      return { gesture: 'S', confidence: 82, category: 'letter' };
+    }
+  }
+
+  // T - Thumb between index and middle (fist)
+  if (!index && !middle && !ring && !pinky) {
+    const thumbBetween = thumbTip.y < indexTip.y && 
+                         distance2D(thumbTip, indexPip) < 0.05;
+    if (thumbBetween) {
+      return { gesture: 'T', confidence: 80, category: 'letter' };
+    }
+  }
+
+  // U - Index and middle together, pointing up
+  if (index && middle && !ring && !pinky) {
+    const together = distance2D(indexTip, middleTip) < 0.04;
+    const pointingUp = indexTip.y < indexPip.y && middleTip.y < middlePip.y;
+    if (together && pointingUp) {
+      return { gesture: 'U', confidence: 88, category: 'letter' };
+    }
+  }
+
+  // V - Index and middle spread in V
+  if (index && middle && !ring && !pinky) {
+    const spread = distance2D(indexTip, middleTip) > 0.06;
+    if (spread) {
+      return { gesture: 'V', confidence: 94, category: 'letter' };
+    }
+  }
+
+  // W - Index, middle, and ring spread
   if (index && middle && ring && !pinky && !thumb) {
-    return { gesture: 'W', confidence: 88, category: 'letter' };
+    return { gesture: 'W', confidence: 90, category: 'letter' };
   }
 
-  // Y - Thumb and pinky extended (call me / shaka)
+  // X - Index finger hooked/bent
+  if (!middle && !ring && !pinky && !thumb) {
+    const indexHooked = indexTip.y > indexPip.y && indexPip.y < indexMcp.y;
+    if (indexHooked) {
+      return { gesture: 'X', confidence: 83, category: 'letter' };
+    }
+  }
+
+  // Y - Thumb and pinky extended (shaka)
   if (thumb && !index && !middle && !ring && pinky) {
-    return { gesture: 'Y', confidence: 90, category: 'letter' };
+    return { gesture: 'Y', confidence: 92, category: 'letter' };
+  }
+
+  // Z - Index finger traces Z (static: index pointing)
+  if (index && !middle && !ring && !pinky && !thumb) {
+    return { gesture: 'Z', confidence: 78, category: 'letter' };
   }
 
   return null;
@@ -355,48 +514,82 @@ export const classifyGesture = (landmarks: NormalizedLandmark[]): GestureResult 
   return { gesture: 'Unknown', confidence: 50, category: 'phrase' };
 };
 
-// Gesture stabilization (reduces jitter)
+// Enhanced Gesture stabilization with confidence tracking
 export class GestureStabilizer {
-  private history: string[] = [];
+  private history: Array<{ gesture: string; confidence: number }> = [];
   private readonly bufferSize: number;
   private readonly threshold: number;
+  private lastStableGesture: string = '';
+  private stableCount: number = 0;
 
-  constructor(bufferSize: number = 5, threshold: number = 0.6) {
+  constructor(bufferSize: number = 8, threshold: number = 0.5) {
     this.bufferSize = bufferSize;
     this.threshold = threshold;
   }
 
-  addGesture(gesture: string): string {
-    this.history.push(gesture);
+  addGesture(gesture: string, confidence: number = 80): { gesture: string; confidence: number; isStable: boolean } {
+    this.history.push({ gesture, confidence });
     if (this.history.length > this.bufferSize) {
       this.history.shift();
     }
 
-    // Count occurrences
-    const counts: Record<string, number> = {};
-    for (const g of this.history) {
-      counts[g] = (counts[g] || 0) + 1;
+    // Count occurrences with weighted confidence
+    const counts: Record<string, { count: number; totalConfidence: number }> = {};
+    for (const entry of this.history) {
+      if (!counts[entry.gesture]) {
+        counts[entry.gesture] = { count: 0, totalConfidence: 0 };
+      }
+      counts[entry.gesture].count++;
+      counts[entry.gesture].totalConfidence += entry.confidence;
     }
 
-    // Find most common gesture
-    let maxCount = 0;
+    // Find most common gesture with highest average confidence
+    let maxScore = 0;
     let stableGesture = gesture;
-    for (const [g, count] of Object.entries(counts)) {
-      if (count > maxCount) {
-        maxCount = count;
+    let avgConfidence = confidence;
+
+    for (const [g, data] of Object.entries(counts)) {
+      const avgConf = data.totalConfidence / data.count;
+      const score = (data.count / this.history.length) * avgConf;
+      if (score > maxScore) {
+        maxScore = score;
         stableGesture = g;
+        avgConfidence = avgConf;
       }
     }
 
-    // Only return if it appears enough times
-    if (maxCount / this.history.length >= this.threshold) {
-      return stableGesture;
+    // Track stability
+    const isStable = counts[stableGesture]?.count >= this.bufferSize * this.threshold;
+    
+    if (stableGesture === this.lastStableGesture) {
+      this.stableCount++;
+    } else {
+      this.stableCount = 1;
+      this.lastStableGesture = stableGesture;
     }
 
-    return this.history[this.history.length - 1];
+    return {
+      gesture: isStable ? stableGesture : this.history[this.history.length - 1].gesture,
+      confidence: Math.round(avgConfidence),
+      isStable: this.stableCount >= 3
+    };
+  }
+
+  getStabilityScore(): number {
+    if (this.history.length === 0) return 0;
+    
+    const counts: Record<string, number> = {};
+    for (const entry of this.history) {
+      counts[entry.gesture] = (counts[entry.gesture] || 0) + 1;
+    }
+    
+    const maxCount = Math.max(...Object.values(counts));
+    return Math.round((maxCount / this.history.length) * 100);
   }
 
   reset(): void {
     this.history = [];
+    this.lastStableGesture = '';
+    this.stableCount = 0;
   }
 }
