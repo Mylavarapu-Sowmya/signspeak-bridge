@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Header from '@/components/Header';
+import LanguageToggle, { type SignLanguageType } from '@/components/LanguageToggle';
 import ModeToggle from '@/components/ModeToggle';
 import SignToText from '@/components/SignToText';
 import TextToSign from '@/components/TextToSign';
@@ -9,6 +10,7 @@ import LanguageSection from '@/components/LanguageSection';
 
 const Index = () => {
   const [mode, setMode] = useState<'sign-to-text' | 'text-to-sign'>('sign-to-text');
+  const [language, setLanguage] = useState<SignLanguageType>('ASL');
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -52,19 +54,22 @@ const Index = () => {
           </p>
         </section>
 
+        {/* Language Toggle */}
+        <LanguageToggle language={language} onLanguageChange={setLanguage} />
+
         {/* Mode Toggle */}
         <ModeToggle mode={mode} onModeChange={setMode} />
 
         {/* Main Content */}
         <section className="mb-16">
-          {mode === 'sign-to-text' ? <SignToText /> : <TextToSign />}
+          {mode === 'sign-to-text' ? <SignToText language={language} /> : <TextToSign />}
         </section>
 
         {/* Features Section */}
         <Features />
 
         {/* Sign Library Section */}
-        <SignLibrary />
+        <SignLibrary language={language} />
 
         {/* Language Section */}
         <LanguageSection />

@@ -5,8 +5,13 @@ import { useHandDetection } from '@/hooks/useHandDetection';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { GestureStabilizer } from '@/lib/gestureClassifier';
 import { cn } from '@/lib/utils';
+import type { SignLanguageType } from '@/components/LanguageToggle';
 
-const SignToText = () => {
+interface SignToTextProps {
+  language: SignLanguageType;
+}
+
+const SignToText = ({ language }: SignToTextProps) => {
   const { 
     videoRef, 
     canvasRef, 
@@ -15,7 +20,8 @@ const SignToText = () => {
     error, 
     detectionResult,
     startDetection, 
-    stopDetection 
+    stopDetection,
+    setLanguage: setDetectionLanguage,
   } = useHandDetection();
   
   const { speak, stop, isSpeaking } = useSpeechSynthesis();
@@ -26,6 +32,11 @@ const SignToText = () => {
   const [autoSpeak, setAutoSpeak] = useState(false);
   const stabilizerRef = useRef(new GestureStabilizer(8, 0.5));
   const lastSpokenRef = useRef<string>('');
+
+  // Sync language to detection hook
+  useEffect(() => {
+    setDetectionLanguage(language);
+  }, [language, setDetectionLanguage]);
 
   // Process gesture detection results
   useEffect(() => {
@@ -326,16 +337,21 @@ const SignToText = () => {
 
         {/* Supported Gestures */}
         <div className="glass-card p-4">
-          <h3 className="font-semibold text-sm mb-3">Supported Gestures (Complete ASL Alphabet):</h3>
+          <h3 className="font-semibold text-sm mb-3">
+            Supported Gestures ({language === 'ISL' ? 'ISL' : 'ASL'}):
+          </h3>
           <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
             <div>
-              <span className="font-medium text-foreground">Phrases:</span> Hello, Peace, OK, I Love You, Thumbs Up/Down, Stop, Point, Rock On
+              <span className="font-medium text-foreground">Phrases:</span>{' '}
+              {language === 'ISL'
+                ? 'Namaste, Peace, Theek Hai, I Love You, Thumbs Up/Down, Stop, Point'
+                : 'Hello, Peace, OK, I Love You, Thumbs Up/Down, Stop, Point, Rock On'}
             </div>
             <div>
-              <span className="font-medium text-foreground">Letters:</span> A-Z (Full ASL Alphabet)
+              <span className="font-medium text-foreground">Letters:</span> A-Z (Full {language} Alphabet)
             </div>
             <div>
-              <span className="font-medium text-foreground">Numbers:</span> 0-5
+              <span className="font-medium text-foreground">Numbers:</span> 0-10
             </div>
             <div>
               <span className="font-medium text-foreground">Detection:</span> 21-point hand tracking

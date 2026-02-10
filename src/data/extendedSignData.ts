@@ -219,7 +219,7 @@ export const signLanguages: SignLanguageInfo[] = [
     description: 'The sign language predominantly used in South Asia. Has regional variations across India.',
     users: '2.7 million+',
     features: ['Growing standardization', 'Regional variations', 'Unique grammar'],
-    supported: false,
+    supported: true,
   },
   {
     code: 'CSL',
