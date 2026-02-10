@@ -3,6 +3,8 @@ import { Hands, Results, NormalizedLandmark } from '@mediapipe/hands';
 import { Camera } from '@mediapipe/camera_utils';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 import { classifyGesture } from '@/lib/gestureClassifier';
+import { classifyISLGesture } from '@/lib/islGestureClassifier';
+import type { SignLanguageType } from '@/components/LanguageToggle';
 
 export interface HandLandmarks {
   landmarks: NormalizedLandmark[];
@@ -21,6 +23,7 @@ export const useHandDetection = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handsRef = useRef<Hands | null>(null);
   const cameraRef = useRef<Camera | null>(null);
+  const languageRef = useRef<SignLanguageType>('ASL');
   
   const [isActive, setIsActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -81,7 +84,9 @@ export const useHandDetection = () => {
 
         // Classify gesture for the first detected hand
         if (i === 0) {
-          primaryGesture = classifyGesture(landmarks as NormalizedLandmark[]);
+          primaryGesture = languageRef.current === 'ISL'
+            ? classifyISLGesture(landmarks as NormalizedLandmark[])
+            : classifyGesture(landmarks as NormalizedLandmark[]);
         }
       }
 
@@ -214,6 +219,10 @@ export const useHandDetection = () => {
     };
   }, [stopDetection]);
 
+  const setLanguage = useCallback((lang: SignLanguageType) => {
+    languageRef.current = lang;
+  }, []);
+
   return {
     videoRef,
     canvasRef,
@@ -223,5 +232,6 @@ export const useHandDetection = () => {
     detectionResult,
     startDetection,
     stopDetection,
+    setLanguage,
   };
 };

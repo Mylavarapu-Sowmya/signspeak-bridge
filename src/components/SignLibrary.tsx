@@ -11,11 +11,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   getAllSigns,
-  getSignsByCategory,
-  getSignsByDifficulty,
   searchSigns,
   type ExtendedSignData,
 } from '@/data/extendedSignData';
+import { getAllISLSigns, searchISLSigns } from '@/data/islSignData';
+import type { SignLanguageType } from '@/components/LanguageToggle';
 
 const categoryIcons = {
   letter: Type,
@@ -39,18 +39,21 @@ const difficultyColors = {
   advanced: 'bg-red-500/20 text-red-400 border-red-500/30',
 };
 
-const SignLibrary = () => {
+interface SignLibraryProps {
+  language: SignLanguageType;
+}
+
+const SignLibrary = ({ language }: SignLibraryProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ExtendedSignData['category'] | 'all'>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<ExtendedSignData['difficulty'] | 'all'>('all');
   const [expandedSign, setExpandedSign] = useState<string | null>(null);
 
   const filteredSigns = useMemo(() => {
-    let signs = getAllSigns();
+    let signs = language === 'ISL' ? getAllISLSigns() : getAllSigns();
 
-    // Filter by search
     if (searchQuery) {
-      signs = searchSigns(searchQuery);
+      signs = language === 'ISL' ? searchISLSigns(searchQuery) : searchSigns(searchQuery);
     }
 
     // Filter by category
@@ -64,10 +67,10 @@ const SignLibrary = () => {
     }
 
     return signs;
-  }, [searchQuery, selectedCategory, selectedDifficulty]);
+  }, [searchQuery, selectedCategory, selectedDifficulty, language]);
 
   const categoryCounts = useMemo(() => {
-    const allSigns = getAllSigns();
+    const allSigns = language === 'ISL' ? getAllISLSigns() : getAllSigns();
     return {
       all: allSigns.length,
       letter: allSigns.filter(s => s.category === 'letter').length,
@@ -76,16 +79,16 @@ const SignLibrary = () => {
       word: allSigns.filter(s => s.category === 'word').length,
       expression: allSigns.filter(s => s.category === 'expression').length,
     };
-  }, []);
+  }, [language]);
 
   return (
     <section className="py-16">
       <div className="text-center mb-12">
         <h2 className="font-display text-3xl font-bold mb-4">
-          Sign Language <span className="gradient-text">Library</span>
+          {language === 'ISL' ? 'ISL' : 'ASL'} Sign Language <span className="gradient-text">Library</span>
         </h2>
         <p className="text-muted-foreground max-w-2xl mx-auto">
-          Explore our comprehensive collection of ASL signs including the alphabet, numbers, phrases, and expressions.
+          Explore our comprehensive collection of {language === 'ISL' ? 'Indian' : 'American'} Sign Language signs including the alphabet, numbers, phrases, and expressions.
         </p>
       </div>
 
