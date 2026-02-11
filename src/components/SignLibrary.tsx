@@ -209,11 +209,23 @@ const SignLibrary = ({ language }: SignLibraryProps) => {
               }`}
               onClick={() => setExpandedSign(isExpanded ? null : sign.sign)}
             >
-              {/* Sign Header */}
+              {/* Sign Header with Emoji */}
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                    <span className="font-display font-bold text-lg text-primary">{sign.sign}</span>
+                  <div className="w-12 h-12 rounded-lg bg-primary/20 flex flex-col items-center justify-center">
+                    <span className="text-xl">{(() => {
+                      const emojis: Record<string, string> = {
+                        'A': '✊', 'B': '🤚', 'C': '🫲', 'D': '☝️', 'E': '✊', 'F': '👌',
+                        'G': '🤏', 'H': '🤞', 'I': '🤙', 'J': '🤙', 'K': '✌️', 'L': '🤟',
+                        'M': '✊', 'N': '✊', 'O': '👌', 'P': '👇', 'Q': '👇', 'R': '🤞',
+                        'S': '✊', 'T': '✊', 'U': '✌️', 'V': '✌️', 'W': '🤟', 'X': '☝️',
+                        'Y': '🤙', 'Z': '☝️', 'Hello': '👋', 'Thank You': '🙏', 'Help': '🆘',
+                        'I Love You': '🤟', 'Happy': '😊', 'Sad': '😢', 'Love': '🤗',
+                        'Namaste': '🙏', 'OK': '👌', 'Thumbs Up': '👍', 'Peace': '✌️',
+                      };
+                      return emojis[sign.sign] || '🤚';
+                    })()}</span>
+                    <span className="font-display font-bold text-[10px] text-primary">{sign.sign}</span>
                   </div>
                 </div>
                 <Icon className="w-4 h-4 text-muted-foreground" />
