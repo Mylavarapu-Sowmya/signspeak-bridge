@@ -62,7 +62,7 @@ const Index = () => {
 
         {/* Main Content */}
         <section className="mb-16">
-          {mode === 'sign-to-text' ? <SignToText language={language} /> : <TextToSign />}
+          {mode === 'sign-to-text' ? <SignToText language={language} /> : <TextToSign language={language} />}
         </section>
 
         {/* Features Section */}
