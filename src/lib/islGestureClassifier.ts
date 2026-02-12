@@ -244,6 +244,18 @@ export const classifyISLPhrase = (landmarks: NormalizedLandmark[]): GestureResul
   // Namaste / Hello - all fingers extended, palms together implied
   if (index && middle && ring && pinky && thumb) {
     const palmForward = landmarks[LANDMARKS.MIDDLE_MCP].z < landmarks[LANDMARKS.MIDDLE_TIP].z;
+    const fingersSpread = distance2D(landmarks[LANDMARKS.INDEX_TIP], pinkyTip) > 0.12;
+    if (palmForward && fingersSpread) {
+      return { gesture: 'Namaste', confidence: 93, category: 'phrase' };
+    }
+    // Good Morning
+    if (palmForward && thumbTip.y < wrist.y - 0.15) {
+      return { gesture: 'Good Morning', confidence: 87, category: 'phrase' };
+    }
+    // Good Night
+    if (!palmForward && landmarks[LANDMARKS.MIDDLE_TIP].y > landmarks[LANDMARKS.MIDDLE_MCP].y) {
+      return { gesture: 'Good Night', confidence: 85, category: 'phrase' };
+    }
     if (palmForward) {
       return { gesture: 'Namaste', confidence: 91, category: 'phrase' };
     }
@@ -342,10 +354,18 @@ export const classifyISLNumber = (landmarks: NormalizedLandmark[]): GestureResul
   }
 
   if (index && middle && ring && pinky && !thumb) {
+    const thumbTucked = distance2D(thumbTip, landmarks[LANDMARKS.INDEX_MCP]) < 0.08;
+    if (thumbTucked) {
+      return { gesture: '4', confidence: 90, category: 'number' };
+    }
     return { gesture: '4', confidence: 88, category: 'number' };
   }
 
   if (index && middle && ring && pinky && thumb) {
+    const allSpread = distance2D(thumbTip, pinkyTip) > 0.12;
+    if (allSpread) {
+      return { gesture: '5', confidence: 94, category: 'number' };
+    }
     return { gesture: '5', confidence: 92, category: 'number' };
   }
 

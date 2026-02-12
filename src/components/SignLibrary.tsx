@@ -215,13 +215,21 @@ const SignLibrary = ({ language }: SignLibraryProps) => {
                   <div className="w-12 h-12 rounded-lg bg-primary/20 flex flex-col items-center justify-center">
                     <span className="text-xl">{(() => {
                       const emojis: Record<string, string> = {
-                        'A': '✊', 'B': '🤚', 'C': '🫲', 'D': '☝️', 'E': '✊', 'F': '👌',
-                        'G': '🤏', 'H': '🤞', 'I': '🤙', 'J': '🤙', 'K': '✌️', 'L': '🤟',
-                        'M': '✊', 'N': '✊', 'O': '👌', 'P': '👇', 'Q': '👇', 'R': '🤞',
+                        'A': '✊', 'B': '🖐️', 'C': '🫳', 'D': '☝️', 'E': '✊', 'F': '👌',
+                        'G': '🤏', 'H': '🤞', 'I': '🤙', 'J': '🤙', 'K': '✌️', 'L': '👆',
+                        'M': '✊', 'N': '✊', 'O': '⭕', 'P': '👇', 'Q': '👇', 'R': '🤞',
                         'S': '✊', 'T': '✊', 'U': '✌️', 'V': '✌️', 'W': '🤟', 'X': '☝️',
-                        'Y': '🤙', 'Z': '☝️', 'Hello': '👋', 'Thank You': '🙏', 'Help': '🆘',
-                        'I Love You': '🤟', 'Happy': '😊', 'Sad': '😢', 'Love': '🤗',
-                        'Namaste': '🙏', 'OK': '👌', 'Thumbs Up': '👍', 'Peace': '✌️',
+                        'Y': '🤙', 'Z': '☝️',
+                        '0': '⭕', '1': '☝️', '2': '✌️', '3': '🤟', '4': '🖐️', '5': '✋',
+                        '6': '🤙', '7': '🤞', '8': '🤘', '9': '👌', '10': '👍',
+                        'Hello': '👋', 'Goodbye': '👋', 'Thank You': '🙏', 'Help': '🆘',
+                        'I Love You': '🤟', 'Happy': '😊', 'Sad': '😢', 'Love': '❤️',
+                        'Namaste': '🙏', 'OK': '👌', 'Theek Hai': '👌',
+                        'Thumbs Up': '👍', 'Thumbs Down': '👎', 'Peace': '✌️',
+                        'Stop': '✋', 'Wait': '✋', 'Good Morning': '🌅', 'Good Night': '🌙',
+                        'Good Afternoon': '☀️', 'Sorry': '🙏', 'Please': '🙏',
+                        'Yes': '👍', 'No': '👎', 'Fist': '✊', 'Point': '👉',
+                        'Rock On': '🤘', 'Shaka': '🤙', 'Call Me': '📞',
                       };
                       return emojis[sign.sign] || '🤚';
                     })()}</span>
