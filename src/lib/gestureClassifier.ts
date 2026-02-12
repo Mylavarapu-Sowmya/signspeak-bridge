@@ -371,8 +371,8 @@ export const classifyASLLetter = (landmarks: NormalizedLandmark[]): GestureResul
   return null;
 };
 
-// Common Phrases/Words Classification - Enhanced with better accuracy
-export const classifyPhrase = (landmarks: NormalizedLandmark[]): GestureResult | null => {
+// Common Phrases/Words Classification - Enhanced with multi-condition checks
+export const classifyPhrase = (landmarks: NormalizedLandmark[], allHands?: NormalizedLandmark[][]): GestureResult | null => {
   const fingers = getFingerStates(landmarks);
   const { thumb, index, middle, ring, pinky } = fingers;
   
@@ -385,12 +385,58 @@ export const classifyPhrase = (landmarks: NormalizedLandmark[]): GestureResult |
   const indexMcp = landmarks[LANDMARKS.INDEX_MCP];
   const middleMcp = landmarks[LANDMARKS.MIDDLE_MCP];
   
+  const hasTwoHands = allHands && allHands.length >= 2;
+
+  // --- TWO-HAND GESTURES ---
+  if (hasTwoHands) {
+    const hand2 = allHands[1];
+    const f2 = getFingerStates(hand2);
+    const wrist2 = hand2[LANDMARKS.WRIST];
+    const middleMcp2 = hand2[LANDMARKS.MIDDLE_MCP];
+
+    // HELP - fist on open palm, both hands
+    if (!index && !middle && !ring && !pinky && f2.index && f2.middle && f2.ring && f2.pinky) {
+      return { gesture: 'Help', confidence: 93, category: 'phrase' };
+    }
+    if (f2.index || f2.middle || f2.ring || f2.pinky) {
+      // reversed hands
+      if (index && middle && ring && pinky && !f2.index && !f2.middle && !f2.ring && !f2.pinky) {
+        return { gesture: 'Help', confidence: 93, category: 'phrase' };
+      }
+    }
+
+    // THANK YOU - both flat hands moving forward from chin area
+    if (index && middle && ring && pinky && f2.index && f2.middle && f2.ring && f2.pinky) {
+      const bothHigh = wrist.y < 0.5 && wrist2.y < 0.5;
+      if (bothHigh) {
+        // Both hands open, high → could be Thank You or other
+        const bothPalmForward = middleMcp.z < landmarks[LANDMARKS.MIDDLE_TIP].z &&
+                                middleMcp2.z < hand2[LANDMARKS.MIDDLE_TIP].z;
+        if (bothPalmForward) {
+          return { gesture: 'Thank You', confidence: 90, category: 'phrase' };
+        }
+      }
+    }
+
+    // SORRY - fist circles on chest (one hand fist near chest)
+    if (!index && !middle && !ring && !pinky && thumb) {
+      if (wrist.y > 0.3 && wrist.y < 0.7) {
+        return { gesture: 'Sorry', confidence: 88, category: 'phrase' };
+      }
+    }
+  }
+
+  // --- FACE-RELATIVE GESTURES ---
+  // We approximate face position: if wrist.y < 0.3, hand is near face/head area
+  const handNearFace = wrist.y < 0.35;
+  const handHigh = wrist.y < 0.25;
+  const handLow = wrist.y > 0.65;
+
   // Thumbs Up - thumb extended upward, fist closed
   if (thumb && !index && !middle && !ring && !pinky) {
     if (thumbTip.y < wrist.y - 0.05) {
       return { gesture: 'Thumbs Up', confidence: 94, category: 'phrase' };
     }
-    // Thumbs Down - thumb extended downward
     if (thumbTip.y > wrist.y + 0.08) {
       return { gesture: 'Thumbs Down', confidence: 92, category: 'phrase' };
     }
@@ -401,27 +447,40 @@ export const classifyPhrase = (landmarks: NormalizedLandmark[]): GestureResult |
     return { gesture: 'I Love You', confidence: 95, category: 'phrase' };
   }
 
-  // Hello / Wave - all fingers extended, palm facing forward, fingers spread
+  // Hello / Wave - all fingers extended, palm forward, fingers spread, hand near face
   if (index && middle && ring && pinky && thumb) {
     const palmForward = middleMcp.z < landmarks[LANDMARKS.MIDDLE_TIP].z;
-    const fingersSpread = distance2D(indexTip, pinkyTip) > 0.12;
-    const handUp = wrist.y > middleMcp.y; // hand is above wrist
-    if (palmForward && fingersSpread && handUp) {
-      return { gesture: 'Hello', confidence: 93, category: 'phrase' };
+    const fingersSpread = distance2D(indexTip, pinkyTip) > 0.10;
+    const fingersTogether = distance2D(indexTip, middleTip) < 0.06 &&
+                            distance2D(middleTip, ringTip) < 0.06 &&
+                            distance2D(ringTip, pinkyTip) < 0.06;
+    const handUp = wrist.y > middleMcp.y;
+    const thumbSpread = distance2D(thumbTip, indexTip) > 0.08;
+
+    // HELLO - open palm, fingers spread, palm forward, hand raised
+    if (palmForward && fingersSpread && handUp && thumbSpread) {
+      return { gesture: 'Hello', confidence: 95, category: 'phrase' };
     }
-    // Good Morning - open hand, palm forward, hand high
-    if (palmForward && thumbTip.y < wrist.y - 0.15) {
-      return { gesture: 'Good Morning', confidence: 88, category: 'phrase' };
+
+    // Good Morning - open hand, palm forward, hand HIGH (above midpoint), rising
+    if (palmForward && handHigh && thumbTip.y < wrist.y - 0.10) {
+      return { gesture: 'Good Morning', confidence: 92, category: 'phrase' };
     }
-    // Good Night - open hand tilted/lowered
-    if (!palmForward && middleTip.y > middleMcp.y) {
-      return { gesture: 'Good Night', confidence: 86, category: 'phrase' };
+
+    // Good Night - hand lowered or palm facing down/inward
+    if (handLow || (!palmForward && middleTip.y > middleMcp.y)) {
+      return { gesture: 'Good Night', confidence: 90, category: 'phrase' };
     }
-    // Goodbye - palm not fully forward
-    if (!palmForward) {
-      return { gesture: 'Goodbye', confidence: 85, category: 'phrase' };
+
+    // Goodbye - palm sideways or not fully forward, waving
+    if (!palmForward && handUp) {
+      return { gesture: 'Goodbye', confidence: 87, category: 'phrase' };
     }
-    return { gesture: 'Hello', confidence: 90, category: 'phrase' };
+
+    // Default open hand
+    if (palmForward) {
+      return { gesture: 'Hello', confidence: 88, category: 'phrase' };
+    }
   }
 
   // OK Sign - thumb and index touch, others extended
@@ -435,13 +494,17 @@ export const classifyPhrase = (landmarks: NormalizedLandmark[]): GestureResult |
     const fingersTogether = distance2D(indexTip, middleTip) < 0.06 &&
                             distance2D(middleTip, ringTip) < 0.06 &&
                             distance2D(ringTip, pinkyTip) < 0.06;
-    if (palmForward && fingersTogether) {
-      return { gesture: 'Stop', confidence: 91, category: 'phrase' };
+    const fingersUp = indexTip.y < indexMcp.y && middleTip.y < middleMcp.y;
+
+    if (palmForward && fingersTogether && fingersUp) {
+      return { gesture: 'Stop', confidence: 94, category: 'phrase' };
     }
-    if (palmForward) {
-      return { gesture: 'Stop', confidence: 88, category: 'phrase' };
+    if (palmForward && fingersUp) {
+      return { gesture: 'Stop', confidence: 90, category: 'phrase' };
     }
-    return { gesture: 'Wait', confidence: 82, category: 'phrase' };
+    if (fingersTogether && fingersUp) {
+      return { gesture: 'Wait', confidence: 85, category: 'phrase' };
+    }
   }
 
   // Peace / Victory - index and middle spread
@@ -490,7 +553,7 @@ export const classifyPhrase = (landmarks: NormalizedLandmark[]): GestureResult |
   return null;
 };
 
-// Number Classification - Enhanced with more numbers
+// Number Classification - Removed 4 and 5 (conflict with phrases)
 export const classifyNumber = (landmarks: NormalizedLandmark[]): GestureResult | null => {
   const fingers = getFingerStates(landmarks);
   const { thumb, index, middle, ring, pinky } = fingers;
@@ -500,9 +563,8 @@ export const classifyNumber = (landmarks: NormalizedLandmark[]): GestureResult |
   const middleTip = landmarks[LANDMARKS.MIDDLE_TIP];
   const ringTip = landmarks[LANDMARKS.RING_TIP];
   const pinkyTip = landmarks[LANDMARKS.PINKY_TIP];
-  const indexMcp = landmarks[LANDMARKS.INDEX_MCP];
 
-  // Zero - O shape (fingers and thumb form circle)
+  // Zero - O shape
   if (!index && !middle && !ring && !pinky) {
     if (distance2D(thumbTip, indexTip) < 0.08) {
       return { gesture: '0', confidence: 84, category: 'number' };
@@ -514,36 +576,17 @@ export const classifyNumber = (landmarks: NormalizedLandmark[]): GestureResult |
     return { gesture: '1', confidence: 92, category: 'number' };
   }
 
-  // Two - Index and middle extended (V shape)
+  // Two - Index and middle extended
   if (index && middle && !ring && !pinky && !thumb) {
     return { gesture: '2', confidence: 90, category: 'number' };
   }
 
-  // Three - Thumb, index, middle extended (ASL style)
+  // Three - Thumb, index, middle extended
   if (thumb && index && middle && !ring && !pinky) {
     return { gesture: '3', confidence: 88, category: 'number' };
   }
 
-  // Four - All fingers except thumb, thumb tucked
-  if (index && middle && ring && pinky && !thumb) {
-    // Differentiate from 5: no thumb extended
-    const thumbTucked = distance2D(thumbTip, indexMcp) < 0.08;
-    if (thumbTucked) {
-      return { gesture: '4', confidence: 91, category: 'number' };
-    }
-    return { gesture: '4', confidence: 89, category: 'number' };
-  }
-
-  // Five - All fingers AND thumb extended (open hand)
-  if (index && middle && ring && pinky && thumb) {
-    const allSpread = distance2D(thumbTip, pinkyTip) > 0.12;
-    if (allSpread) {
-      return { gesture: '5', confidence: 95, category: 'number' };
-    }
-    return { gesture: '5', confidence: 93, category: 'number' };
-  }
-
-  // Six - Thumb touches pinky, W shape visible
+  // Six - Thumb touches pinky
   if (index && middle && ring && !pinky && thumb) {
     if (distance2D(thumbTip, pinkyTip) < 0.06) {
       return { gesture: '6', confidence: 85, category: 'number' };
@@ -564,14 +607,14 @@ export const classifyNumber = (landmarks: NormalizedLandmark[]): GestureResult |
     }
   }
 
-  // Nine - Thumb touches index finger (like F but different context)
+  // Nine - Thumb touches index finger
   if (!index && middle && ring && pinky && thumb) {
     if (distance2D(thumbTip, indexTip) < 0.06) {
       return { gesture: '9', confidence: 84, category: 'number' };
     }
   }
 
-  // Ten - Thumb up shaking (static: just thumb extended)
+  // Ten - Thumb up shaking
   if (thumb && !index && !middle && !ring && !pinky) {
     if (thumbTip.y < landmarks[LANDMARKS.THUMB_MCP].y) {
       return { gesture: '10', confidence: 82, category: 'number' };
@@ -581,14 +624,14 @@ export const classifyNumber = (landmarks: NormalizedLandmark[]): GestureResult |
   return null;
 };
 
-// Main classifier that combines all recognition
-export const classifyGesture = (landmarks: NormalizedLandmark[]): GestureResult => {
+// Main classifier that combines all recognition - supports multi-hand context
+export const classifyGesture = (landmarks: NormalizedLandmark[], allHands?: NormalizedLandmark[][]): GestureResult => {
   if (!landmarks || landmarks.length !== 21) {
     return { gesture: 'No Hand', confidence: 0, category: 'phrase' };
   }
 
-  // Try phrase recognition first (highest priority)
-  const phrase = classifyPhrase(landmarks);
+  // Try phrase recognition first (highest priority) - pass all hands for two-hand gestures
+  const phrase = classifyPhrase(landmarks, allHands);
   if (phrase && phrase.confidence > 85) {
     return phrase;
   }
@@ -605,20 +648,9 @@ export const classifyGesture = (landmarks: NormalizedLandmark[]): GestureResult 
     return number;
   }
 
-  // Return phrase with lower confidence if found
-  if (phrase) {
-    return phrase;
-  }
-
-  // Return letter with lower confidence if found
-  if (letter) {
-    return letter;
-  }
-
-  // Return number with lower confidence if found
-  if (number) {
-    return number;
-  }
+  if (phrase) return phrase;
+  if (letter) return letter;
+  if (number) return number;
 
   return { gesture: 'Unknown', confidence: 50, category: 'phrase' };
 };
