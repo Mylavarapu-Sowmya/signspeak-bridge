@@ -56,6 +56,13 @@ export const useHandDetection = () => {
       const hands: HandLandmarks[] = [];
       let primaryGesture = { gesture: '', confidence: 0, category: 'phrase' as 'letter' | 'word' | 'phrase' | 'number' };
 
+      // Collect all hand landmarks first
+      const allHandLandmarks: NormalizedLandmark[][] = [];
+      for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+        const landmarks = results.multiHandLandmarks[i];
+        allHandLandmarks.push(landmarks as NormalizedLandmark[]);
+      }
+
       for (let i = 0; i < results.multiHandLandmarks.length; i++) {
         const landmarks = results.multiHandLandmarks[i];
         const handedness = results.multiHandedness[i];
@@ -67,12 +74,12 @@ export const useHandDetection = () => {
 
         // Draw connections
         drawConnectors(ctx, landmarks, [
-          [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
-          [0, 5], [5, 6], [6, 7], [7, 8], // Index
-          [0, 9], [9, 10], [10, 11], [11, 12], // Middle
-          [0, 13], [13, 14], [14, 15], [15, 16], // Ring
-          [0, 17], [17, 18], [18, 19], [19, 20], // Pinky
-          [5, 9], [9, 13], [13, 17], // Palm
+          [0, 1], [1, 2], [2, 3], [3, 4],
+          [0, 5], [5, 6], [6, 7], [7, 8],
+          [0, 9], [9, 10], [10, 11], [11, 12],
+          [0, 13], [13, 14], [14, 15], [15, 16],
+          [0, 17], [17, 18], [18, 19], [19, 20],
+          [5, 9], [9, 13], [13, 17],
         ], { color: '#00FFFF', lineWidth: 3 });
 
         // Draw landmarks
@@ -82,11 +89,11 @@ export const useHandDetection = () => {
           radius: 4,
         });
 
-        // Classify gesture for the first detected hand
+        // Classify gesture for the first detected hand, passing all hands for context
         if (i === 0) {
           primaryGesture = languageRef.current === 'ISL'
-            ? classifyISLGesture(landmarks as NormalizedLandmark[])
-            : classifyGesture(landmarks as NormalizedLandmark[]);
+            ? classifyISLGesture(landmarks as NormalizedLandmark[], allHandLandmarks)
+            : classifyGesture(landmarks as NormalizedLandmark[], allHandLandmarks);
         }
       }
 

@@ -196,7 +196,7 @@ const SignLibrary = ({ language }: SignLibraryProps) => {
       </div>
 
       {/* Signs Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 auto-rows-fr">
         {filteredSigns.map((sign) => {
           const Icon = categoryIcons[sign.category];
           const isExpanded = expandedSign === sign.sign;
@@ -204,24 +204,26 @@ const SignLibrary = ({ language }: SignLibraryProps) => {
           return (
             <div
               key={`${sign.category}-${sign.sign}`}
-              className={`glass-card p-4 cursor-pointer transition-all duration-300 hover:border-primary/30 ${
+              className={`glass-card p-4 cursor-pointer transition-all duration-300 hover:border-primary/30 flex flex-col ${
                 isExpanded ? 'col-span-2 row-span-2 md:col-span-2' : ''
               }`}
               onClick={() => setExpandedSign(isExpanded ? null : sign.sign)}
             >
               {/* Sign Header with Emoji */}
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-12 h-12 rounded-lg bg-primary/20 flex flex-col items-center justify-center">
-                    <span className="text-xl">{(() => {
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg bg-primary/20 flex flex-col items-center justify-center shrink-0">
+                    <span className="text-xl leading-none">{(() => {
                       const emojis: Record<string, string> = {
                         'A': '✊', 'B': '🖐️', 'C': '🫳', 'D': '☝️', 'E': '✊', 'F': '👌',
                         'G': '🤏', 'H': '🤞', 'I': '🤙', 'J': '🤙', 'K': '✌️', 'L': '👆',
                         'M': '✊', 'N': '✊', 'O': '⭕', 'P': '👇', 'Q': '👇', 'R': '🤞',
                         'S': '✊', 'T': '✊', 'U': '✌️', 'V': '✌️', 'W': '🤟', 'X': '☝️',
                         'Y': '🤙', 'Z': '☝️',
-                        '0': '⭕', '1': '☝️', '2': '✌️', '3': '🤟', '4': '🖐️', '5': '✋',
+                        '0': '⭕', '1': '☝️', '2': '✌️', '3': '🤟',
                         '6': '🤙', '7': '🤞', '8': '🤘', '9': '👌', '10': '👍',
+                        '11': '☝️', '12': '✌️', '13': '🤟', '14': '🖐️', '15': '✋',
+                        '16': '🤙', '17': '🤞', '18': '🤘', '19': '👌', '20': '🤏',
                         'Hello': '👋', 'Goodbye': '👋', 'Thank You': '🙏', 'Help': '🆘',
                         'I Love You': '🤟', 'Happy': '😊', 'Sad': '😢', 'Love': '❤️',
                         'Namaste': '🙏', 'OK': '👌', 'Theek Hai': '👌',
@@ -230,13 +232,14 @@ const SignLibrary = ({ language }: SignLibraryProps) => {
                         'Good Afternoon': '☀️', 'Sorry': '🙏', 'Please': '🙏',
                         'Yes': '👍', 'No': '👎', 'Fist': '✊', 'Point': '👉',
                         'Rock On': '🤘', 'Shaka': '🤙', 'Call Me': '📞',
+                        'Dhanyavaad': '🙏', 'Kaise Ho': '🤷',
                       };
                       return emojis[sign.sign] || '🤚';
                     })()}</span>
-                    <span className="font-display font-bold text-[10px] text-primary">{sign.sign}</span>
                   </div>
+                  <span className="font-display font-bold text-sm text-foreground">{sign.sign}</span>
                 </div>
-                <Icon className="w-4 h-4 text-muted-foreground" />
+                <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
               </div>
 
               {/* Difficulty Badge */}
