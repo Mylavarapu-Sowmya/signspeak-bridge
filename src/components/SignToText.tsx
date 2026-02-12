@@ -176,17 +176,17 @@ const SignToText = ({ language }: SignToTextProps) => {
           )}
         </div>
 
-        {/* Instructions */}
+        {/* Tips */}
         <div className="glass-card p-4">
           <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
             <Zap className="w-4 h-4 text-primary" />
-            Powered by MediaPipe AI
+            Tips for Best Results
           </h3>
           <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• Uses the same technology as the sign2text project</li>
-            <li>• Real-time hand landmark detection (21 points)</li>
-            <li>• Position your hands clearly in frame</li>
-            <li>• Make slow, distinct gestures for best results</li>
+            <li>• Position your hand clearly in the center of the frame</li>
+            <li>• Ensure good lighting on your hand</li>
+            <li>• Make slow, distinct gestures and hold briefly</li>
+            <li>• Keep your hand steady for accurate detection</li>
           </ul>
         </div>
       </div>
@@ -335,29 +335,6 @@ const SignToText = ({ language }: SignToTextProps) => {
           </div>
         )}
 
-        {/* Supported Gestures */}
-        <div className="glass-card p-4">
-          <h3 className="font-semibold text-sm mb-3">
-            Supported Gestures ({language === 'ISL' ? 'ISL' : 'ASL'}):
-          </h3>
-          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-            <div>
-              <span className="font-medium text-foreground">Phrases:</span>{' '}
-              {language === 'ISL'
-                ? 'Namaste, Peace, Theek Hai, I Love You, Thumbs Up/Down, Stop, Point'
-                : 'Hello, Peace, OK, I Love You, Thumbs Up/Down, Stop, Point, Rock On'}
-            </div>
-            <div>
-              <span className="font-medium text-foreground">Letters:</span> A-Z (Full {language} Alphabet)
-            </div>
-            <div>
-              <span className="font-medium text-foreground">Numbers:</span> 0-10
-            </div>
-            <div>
-              <span className="font-medium text-foreground">Detection:</span> 21-point hand tracking
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
